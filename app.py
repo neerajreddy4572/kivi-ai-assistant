@@ -2,22 +2,46 @@ import os
 import requests
 from fastapi import FastAPI, Request
 from dotenv import load_dotenv
+from openai import OpenAI
 
 # Load environment variables
 load_dotenv()
 
 app = FastAPI()
 
-# Get token safely from .env / Render ENV
+# ===== TOKENS FROM ENV =====
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Telegram send message URL
+# ===== TELEGRAM API URL =====
 TELEGRAM_URL = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
 
+# ===== OPENAI CLIENT =====
+client = OpenAI(api_key=OPENAI_API_KEY)
 
-# ===== AI BRAIN FUNCTION (TEMP VERSION) =====
+
+# ===== REAL AI BRAIN FUNCTION =====
 def ai_reply(user_text):
-    return f"🧠 Kivi AI: I understood → {user_text}"
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are Kivi, a smart, helpful personal AI assistant. Be clear and helpful."
+                },
+                {
+                    "role": "user",
+                    "content": user_text
+                }
+            ]
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        print("AI Error:", str(e))
+        return "⚠ AI is temporarily unavailable"
 
 
 # ===== TELEGRAM WEBHOOK ENDPOINT =====
