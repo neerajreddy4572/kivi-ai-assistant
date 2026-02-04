@@ -8,7 +8,7 @@ load_dotenv()
 
 app = FastAPI()
 
-# Get token safely from .env
+# Get token safely from .env / Render ENV
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 # Telegram send message URL
@@ -17,34 +17,40 @@ TELEGRAM_URL = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
 
 # ===== AI BRAIN FUNCTION (TEMP VERSION) =====
 def ai_reply(user_text):
-    """
-    Temporary AI reply.
-    Later we will connect real AI API here.
-    """
     return f"🧠 Kivi AI: I understood → {user_text}"
 
 
 # ===== TELEGRAM WEBHOOK ENDPOINT =====
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
+    try:
+        data = await request.json()
+        print("Incoming Telegram Update:", data)
 
-    data = await request.json()
+        if "message" in data:
+            chat_id = data["message"]["chat"]["id"]
+            text = data["message"].get("text", "")
 
-    if "message" in data:
-        chat_id = data["message"]["chat"]["id"]
-        text = data["message"].get("text", "")
+            print("Chat ID:", chat_id)
+            print("User Text:", text)
 
-        reply = ai_reply(text)
+            reply = ai_reply(text)
 
-        requests.post(
-            TELEGRAM_URL,
-            json={
-                "chat_id": chat_id,
-                "text": reply
-            }
-        )
+            response = requests.post(
+                TELEGRAM_URL,
+                json={
+                    "chat_id": chat_id,
+                    "text": reply
+                }
+            )
 
-    return {"status": "ok"}
+            print("Telegram API Response:", response.text)
+
+        return {"status": "ok"}
+
+    except Exception as e:
+        print("Webhook Error:", str(e))
+        return {"status": "error"}
 
 
 # ===== HEALTH CHECK =====
