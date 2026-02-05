@@ -23,7 +23,7 @@ if not HF_API_KEY:
 TELEGRAM_URL = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
 
 # ===== HUGGINGFACE MODEL =====
-HF_MODEL_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+HF_MODEL_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large"
 
 HF_HEADERS = {
     "Authorization": f"Bearer {HF_API_KEY}",
