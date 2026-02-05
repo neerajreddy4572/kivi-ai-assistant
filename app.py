@@ -3,70 +3,86 @@ import time
 import requests
 from fastapi import FastAPI, Request
 from dotenv import load_dotenv
-from openai import OpenAI
 
 # ===== LOAD ENV =====
 load_dotenv()
 
 app = FastAPI()
 
-# ===== TOKENS FROM ENV =====
+# ===== ENV VARIABLES =====
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+HF_API_KEY = os.getenv("HF_API_KEY")
 
 if not TELEGRAM_TOKEN:
     raise Exception("TELEGRAM_TOKEN missing in ENV")
 
-if not OPENAI_API_KEY:
-    raise Exception("OPENAI_API_KEY missing in ENV")
+if not HF_API_KEY:
+    raise Exception("HF_API_KEY missing in ENV")
 
-# ===== TELEGRAM API URL =====
+# ===== TELEGRAM API =====
 TELEGRAM_URL = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
 
-# ===== OPENAI CLIENT =====
-client = OpenAI(api_key=OPENAI_API_KEY)
+# ===== HUGGINGFACE MODEL =====
+HF_MODEL_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
 
-# ===== REAL AI BRAIN FUNCTION =====
+HF_HEADERS = {
+    "Authorization": f"Bearer {HF_API_KEY}",
+    "Content-Type": "application/json"
+}
+
+
+# ===== FREE AI BRAIN FUNCTION =====
 def ai_reply(user_text):
     """
-    Stable AI reply with retry logic.
+    Free AI using HuggingFace Inference API
     """
 
-    for attempt in range(2):   # Retry once if fail
-        try:
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": """
+    prompt = f"""
 You are Kivi AI.
-You help with:
-- Daily planning
-- Prompt engineering help
-- Task management
-- Smart suggestions
-- Decision support
-- Friendly AI chat
+You act as:
+- Day planner
+- Prompt engineer
+- Task planner
+- Schedule maker
+- Decision helper
+- Friendly assistant
 
-Be clear, helpful, and practical.
+User: {user_text}
+Assistant:
 """
-                    },
-                    {
-                        "role": "user",
-                        "content": user_text
-                    }
-                ],
-                timeout=20
+
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 250,
+            "temperature": 0.7,
+            "return_full_text": False
+        }
+    }
+
+    for attempt in range(2):  # retry once
+        try:
+            response = requests.post(
+                HF_MODEL_URL,
+                headers=HF_HEADERS,
+                json=payload,
+                timeout=30
             )
 
-            return response.choices[0].message.content
+            result = response.json()
+
+            if isinstance(result, list) and "generated_text" in result[0]:
+                return result[0]["generated_text"].strip()
+
+            if "error" in result:
+                print("HF Error:", result["error"])
+                time.sleep(2)
 
         except Exception as e:
-            print(f"AI Attempt {attempt+1} Failed:", str(e))
+            print("HF Exception:", str(e))
             time.sleep(2)
 
-    return "⚠ AI is temporarily unavailable. Try again in a few seconds."
+    return "⚠ Free AI is busy right now. Please try again in a moment."
 
 
 # ===== TELEGRAM SEND FUNCTION =====
@@ -80,23 +96,22 @@ def send_telegram(chat_id, text):
             },
             timeout=15
         )
-
         print("Telegram Response:", response.text)
 
     except Exception as e:
         print("Telegram Send Error:", str(e))
 
 
-# ===== TELEGRAM WEBHOOK ENDPOINT =====
+# ===== TELEGRAM WEBHOOK =====
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
     try:
         data = await request.json()
-        print("Incoming Telegram Update:", data)
+        print("Incoming Update:", data)
 
         if "message" in data:
             chat_id = data["message"]["chat"]["id"]
-            text = data["message"].get("text", "")
+            text = data["message"].get("text", "").strip()
 
             print("Chat ID:", chat_id)
             print("User Text:", text)
